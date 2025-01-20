@@ -1,0 +1,1116 @@
+
+ -------------------- ball.js ------------------------ 
+
+///////////////////////////GENERATE BALL///////////////////////////
+// Create a new physics body for the red ball
+function generateRedBalls(ballDiameter) 
+{
+    var redBalls = [];
+    var baseRowX = playingSurfaceWidth * 0.75; // X-coordinate 
+    var ballSpacing = ballDiameter; // Spacing between balls
+    
+    // Create 5 rows of red balls in a triangle formation
+    for (var row = 0; row < 5; row++) 
+    {
+        var offsetY = (row * ballDiameter) / 2; // Offset each row to form a triangle
+        var x = baseRowX + row * ballSpacing; // Position each row to the left of the previous
+
+        for (var col = 0; col <= row; col++) 
+        {
+            var y = tableHeight / 2 + offsetY - (col * ballDiameter);
+            var redBall = Bodies.circle(x, y, ballDiameter / 2, { restitution: restitution, friction: friction });
+            redBall.isRed = true;
+            redBall.color = [255, 128, 128];
+            redBalls.push(redBall);
+        }
+    }
+
+    World.add(engine.world, redBalls);
+    balls = balls.concat(redBalls); 
+}
+
+// Create a new physics body for the colour ball
+function generateColourBalls(ballDiameter) 
+{
+    var colourBalls = [];
+
+    // Yellow Ball - Positioned at the top of the vertical baulk line
+    var yellowBall = Bodies.circle(baulkLineX, baulkLineY - (0.96*100), ballDiameter / 2, { restitution: restitution, friction: friction });
+    yellowBall.color = [255, 255, 128];
+    yellowBall.name = "Yellow";
+    colourBalls.push(yellowBall);
+
+    // Green Ball - Positioned at the bottom of the vertical baulk line
+    var greenBall = Bodies.circle(baulkLineX, baulkLineY + (0.96*100), ballDiameter / 2, { restitution: restitution, friction: friction });
+    greenBall.color = [128, 255, 128];
+    greenBall.name = "Green";
+    colourBalls.push(greenBall);
+
+    // Brown Ball - Positioned at the midpoint of the vertical baulk line
+    var brownBall = Bodies.circle(baulkLineX, baulkLineY, ballDiameter / 2, { restitution: restitution, friction: friction });
+    brownBall.color = [210, 180, 140];
+    brownBall.name = "Brown";
+    colourBalls.push(brownBall);
+
+    // Blue Ball - Center of the table
+    var blueBall = Bodies.circle(tableWidth / 2, tableHeight / 2, ballDiameter / 2, { restitution: restitution, friction: friction });
+    blueBall.color = [173, 216, 230];
+    blueBall.name = "Blue";
+    colourBalls.push(blueBall);
+
+    // Pink Ball - Midway between the center of the table and the top cushion
+    var pinkBall = Bodies.circle(playingSurfaceWidth * 0.75 - ballDiameter, tableHeight / 2 , ballDiameter / 2, { restitution: restitution, friction: friction });
+    pinkBall.name = "Pink";
+    pinkBall.color = [255, 182, 193];
+    colourBalls.push(pinkBall);
+
+    // Black Ball - Positioned near the top cushion
+    var blackBall = Bodies.circle(playingSurfaceWidth - (1.067*100), tableHeight / 2, ballDiameter / 2, { restitution: restitution, friction: friction });
+    blackBall.name = "Black";
+    blackBall.color = [192, 192, 192];
+    colourBalls.push(blackBall);
+    
+    colourBalls.forEach(ball => 
+                        {
+        ball.isColoredBall = true;
+        ball.startingPosition = { x: ball.position.x, y: ball.position.y };
+    });
+
+    World.add(engine.world, colourBalls);
+    balls = balls.concat(colourBalls);
+}
+
+///////////////////////////1ST MODE///////////////////////////
+function setupStartingPosition() 
+{
+    // Remove all existing balls 
+    balls.forEach(ball => World.remove(engine.world, ball));
+
+    // Clear the balls array
+    balls = [];
+
+    // Regenerate and add all balls to the Matter.js world
+    generateRedBalls(ballDiameter);
+    generateColourBalls(ballDiameter);
+    placeRedBallsInTriangle();
+    resetColourBallsToStartingPositions();
+}
+
+// Red ball position in a triangle formation
+function placeRedBallsInTriangle() 
+{
+    var baseRowX = playingSurfaceWidth * 0.75;
+    var ballSpacing = ballDiameter;
+    
+    for (var row = 0, idx = 0; row < 5; row++) 
+    {
+        var offsetY = (row * ballDiameter) / 2;
+
+        for (var col = 0; col <= row; col++, idx++) 
+        {
+            if (idx < balls.length && balls[idx].isRed) 
+            {
+                var x = baseRowX + row * ballSpacing;
+                var y = tableHeight / 2 + offsetY - (col * ballDiameter);
+                Body.setPosition(balls[idx], { x: x, y: y });
+                Body.setVelocity(balls[idx], { x: 0, y: 0 });
+                Body.setAngularVelocity(balls[idx], 0); 
+            }
+        }
+    }
+}
+
+// Iterate over the balls array and reset each coloured ball to its starting position
+function resetColourBallsToStartingPositions() 
+{
+    
+    balls.forEach(ball => {
+        if (ball.isColoredBall) 
+        {
+            Body.setPosition(ball, ball.startingPosition);
+            Body.setVelocity(ball, { x: 0, y: 0 }); // Reset velocity
+            Body.setAngularVelocity(ball, 0); // Reset angular velocity
+        }
+    });
+}
+
+///////////////////////////2ND MODE///////////////////////////
+// All balls in random position
+function randomizeAllBallsPosition() 
+{
+    balls.forEach(ball => World.remove(engine.world, ball));
+    balls = [];
+    generateRedBalls(ballDiameter);
+    generateColourBalls(ballDiameter);
+    
+    for (let ball of balls) 
+    {
+        let position;
+
+        do 
+        {
+            position = generateRandomPosition();
+        } while (isOverlappingWithOtherBallsOrPockets(position, ballDiameter));
+
+        Body.setPosition(ball, position);
+    }
+}
+
+//Generate random position
+function generateRandomPosition() 
+{
+    let minX = cushionThickness + ballDiameter / 2;
+    let maxX = playingSurfaceWidth - cushionThickness - ballDiameter / 2;
+    let minY = cushionThickness + ballDiameter / 2;
+    let maxY = playingSurfaceHeight - cushionThickness - ballDiameter / 2;
+
+    let x = random(minX, maxX);
+    let y = random(minY, maxY);
+
+    return { x: x, y: y };
+}
+
+// Check if ball overlaps with other matter
+function isOverlappingWithOtherBallsOrPockets(position, diameter) 
+{
+    for (let otherBall of balls) {
+        if (dist(position.x, position.y, otherBall.position.x, otherBall.position.y) < diameter) 
+        {
+            return true; // Overlap with another ball
+        }
+    }
+
+    for (let pocket of pockets) 
+    {
+        if (dist(position.x, position.y, pocket.position.x, pocket.position.y) < diameter / 2 + pocket.circleRadius) 
+        {
+            return true; // Overlap with a pocket
+        }
+    }
+
+    return false;
+}
+
+// Draw balls 
+function drawBalls()
+{
+    for (var i = 0; i < balls.length; i++) 
+    {
+        var ball = balls[i];
+        fill(ball.color);
+        ellipse(ball.position.x, ball.position.y, 30, 30);
+    }
+}
+
+///////////////////////////3RD MODE///////////////////////////
+// Only red balls in random position
+function randomizeRedBallsPosition() 
+{
+    balls.forEach(ball => World.remove(engine.world, ball));
+    balls = [];
+    generateRedBalls(ballDiameter);
+
+    // Add the colored balls back without randomizing their positions
+    generateColourBalls(ballDiameter);
+
+    // Only randomize position for red balls
+    for (let ball of balls) 
+    {
+        if (ball.isRed)
+        {
+            let position;
+            do 
+            {
+                position = generateRandomPosition();
+            } while (isOverlappingWithOtherBallsOrPockets(position, ballDiameter));
+
+            Body.setPosition(ball, position);
+        }
+    }
+}
+ -------------------- collisionDectection.js ------------------------ 
+
+///////////////////////////COLLISION DETECTION///////////////////////////
+// Check for Collision
+function handleCollisions(event) {
+    var pairs = event.pairs;
+
+    for (var i = 0; i < pairs.length; i++) {
+        var bodyA = pairs[i].bodyA;
+        var bodyB = pairs[i].bodyB;
+
+        if (isCueBall(bodyA) || isCueBall(bodyB)) {
+            var other = isCueBall(bodyA) ? bodyB : bodyA;
+            var collisionType = identifyCollisionType(other);
+            displayCollisionPrompt(collisionType);
+        }
+    }
+}
+
+// Check for other body
+function identifyCollisionType(otherBody) {
+    if (isRedBall(otherBody)) {
+        return 'red ball';
+    } else if (isColoredBall(otherBody)) {
+        return 'colored ball';
+    } else if (isCushion(otherBody)) {
+        return 'cushion';
+    } else if (isPocket(otherBody)) {
+        return 'pocket';
+    }
+    return 'unknown';
+}
+
+//Print Collision on console
+function displayCollisionPrompt(collisionType) {
+    let message = 'Cue ball collided with ';
+
+    switch (collisionType) {
+        case 'red ball':
+            message += 'a red ball.';
+            break;
+        case 'colored ball':
+            message += 'a colored ball.';
+            break;
+        case 'cushion':
+            message += 'a cushion.';
+            break;
+        case 'pocket':
+            message += 'a pocket.';
+            break;
+        default:
+            message += 'an unknown object.';
+    }
+    console.log(message);
+}
+
+// Check for body
+function isCueBall(body) 
+{
+    return body === cueBall;
+}
+
+function isRedBall(body) 
+{
+
+    return balls.includes(body) && body.isRed;
+}
+
+function isColoredBall(body) 
+{
+
+    return balls.includes(body) && body.isColoredBall;
+}
+
+function isCushion(body)
+{
+
+    return walls.includes(body);
+}
+
+function isPocket(body)
+{
+    return body.isSensor;
+}
+ -------------------- cueBall.js ------------------------ 
+
+///////////////////////////CUEBALL FUNCTION///////////////////////////
+// Create a new physics body for the cue ball
+function generateCueBall(ballDiameter) 
+{
+    cueBall = Bodies.circle(mouseX, mouseY, ballDiameter / 2, { restitution: restitution, friction: friction });
+    World.add(engine.world, cueBall);
+}
+
+// Draw cueball
+function drawCueBall() 
+{
+    fill(255); // Color for cue ball
+    ellipse(cueBall.position.x, cueBall.position.y, 30, 30); // Draw the cue ball
+}
+
+// Reset cueball position
+function resetCueBall() 
+{
+    placingCueBall = true; 
+    translatedX = mouseX - 100; 
+    translatedY = mouseY - 100; 
+    Body.setPosition(cueBall, { x: translatedX, y: translatedY });
+    Body.setVelocity(cueBall, { x: 0, y: 0 });
+    Body.setAngularVelocity(cueBall, 0);
+}
+
+// Check if cueball is stopped
+function isCueBallStopped() 
+{
+    var velocity = cueBall.velocity;
+    var speedThreshold = 0.05; // A small threshold value
+
+    // Check if both x and y components of the velocity are less than the threshold
+    return (Math.abs(velocity.x) < speedThreshold && Math.abs(velocity.y) < speedThreshold);
+}
+
+// Cue indicator
+function drawForceLine() 
+{
+    // Calculate the distance between the cue ball and the mouse cursor
+    var distance = dist(cueBall.position.x, cueBall.position.y, translatedX, translatedY);
+
+    // Use the distance as the line length
+    var lineLength = distance;
+    
+    var angle = atan2(translatedY - cueBall.position.y, translatedX- cueBall.position.x);
+
+    // Calculate the start point of the line based on the angle and length
+    var startX = cueBall.position.x + lineLength * cos(angle);
+    var startY = cueBall.position.y + lineLength * sin(angle);
+
+    // Set the stroke color and draw the line
+     stroke(255, 255, 255, 100);  
+    line(cueBall.position.x, cueBall.position.y, startX, startY);
+}
+
+// Draw force bar indicator
+function drawForceBar() 
+{
+    fill(255, 255, 255, 100);
+    rect(forceBarX, forceBarY, forceBarWidth, forceBarHeight);
+    
+    if(isCueBallStopped())
+        {
+        var filledHeight = map(accumulatedForce, 0, forceCap, 0, forceBarMaxHeight);
+        fill(0, 255, 0); 
+        rect(forceBarX, forceBarY + forceBarHeight - filledHeight, forceBarWidth, filledHeight);
+        }
+}
+
+// Check if able to place cueball else hover
+function drawCueBallPlacement() 
+{
+    if (placingCueBall) 
+    {
+        fill(255); 
+        ellipse(translatedX, translatedY, ballDiameter, ballDiameter);
+    } 
+    else
+    {
+        drawCueBall();
+        drawForceLine();
+        drawForceBar();
+    } 
+}
+
+ -------------------- extension.js ------------------------ 
+
+///////////////////////////4TH MODE///////////////////////////
+function randomizePocket()
+{
+     // Remove all existing balls 
+    balls.forEach(ball => World.remove(engine.world, ball));
+
+    // Clear the balls array
+    balls = [];
+
+    // Add red balls 
+    generateRedBalls(ballDiameter);
+
+    // Add the colored balls 
+    generateColourBalls(ballDiameter);   
+    activateRandomPockets();
+
+    // Set up a timer to change pockets every 10 seconds
+    setInterval(activateRandomPockets, 10000); 
+}
+
+// Random generate active pockets
+function activateRandomPockets() 
+{
+    // Reset all pockets to inactive
+    pockets.forEach(pocket => pocket.isActive = false);
+
+    // Randomly select three pockets and activate them
+    let activePockets = [];
+    while (activePockets.length < 3) 
+    {
+        let randomIndex = Math.floor(Math.random() * pockets.length);
+        if (!activePockets.includes(randomIndex)) 
+        {
+            activePockets.push(randomIndex);
+            pockets[randomIndex].isActive = true;
+        }
+    }
+}
+
+// Draw active pockets
+function drawActivePockets() 
+{
+    for (var i = 0; i < pockets.length; i++) 
+    {
+        var pocket = pockets[i];
+        var pocketRadius = pocket.circleRadius * 2;
+
+        // Check if the pocket is active
+        if (pocket.isActive)
+        {
+            // Draw green outline for active pockets
+            stroke(0, 255, 0); 
+            strokeWeight(3); 
+        } 
+        else 
+        {
+            noStroke(); 
+        }
+
+        fill(0); 
+        ellipse(pocket.position.x, pocket.position.y, pocketRadius, pocketRadius); 
+    }
+}
+
+// Remove balls in active pockets
+function removeBallInActivePocket() 
+{
+    // Check if last pocketed ball and current pocketed ball is coloured
+    for (var i = balls.length - 1; i >= 0; i--) 
+    {
+        var ball = balls[i];
+        for (var j = 0; j < pockets.length; j++) 
+        {
+            if (pockets[j].isActive && isBallInPocket(ball, pockets[j]))
+            {
+                console.log("Last ball pocketed:", lastBallPocketed);
+                if (ball.isColoredBall) {
+                    if (lastBallPocketed && lastBallPocketed.isColoredBall) 
+                    {
+                        // Trigger error prompt
+                        console.log("Error: Colored balls pocketed consecutively!");
+                        alert("Error: Colored balls pocketed consecutively!");
+                    }
+                    // Set lastBallPocketed to the current ball
+                    lastBallPocketed = ball;
+                } 
+                else 
+                {
+                    lastBallPocketed = null; // Reset if the pocketed ball is not colored
+                }
+
+            }
+        }
+    }
+    
+    // Check if cueball is pocketed
+    for (var j = 0; j < pockets.length; j++) 
+    {
+        if (pockets[j].isActive && isBallInPocket(cueBall, pockets[j]))
+        {
+            // Generate a new cue ball and position it outside the pocket
+            Body.setPosition(cueBall, { x: mouseX, y: mouseY });
+            Body.setVelocity(cueBall, { x: 0, y: 0 }); 
+            Body.setAngularVelocity(cueBall, 0); 
+            console.log("Cue Ball Pocketed");
+            alert("Error: Cueball Pocketed! Please re-adjust cueball!");
+            
+            placingCueBall = true;
+            break;
+        }
+    }
+    
+    // Check if redball/colourball are pocketed
+    for (var i = balls.length - 1; i >= 0; i--) 
+    {
+        var ball = balls[i];
+        for (var j = 0; j < pockets.length; j++) 
+        {
+            if (pockets[j].isActive && isBallInPocket(ball, pockets[j]))
+            {
+                if (ball.isRed) {
+                    redBallCount--;
+                }
+
+                if (ball.isColoredBall && redBallCount > 0) 
+                {
+                    // Reset colored ball to its starting position
+                    Body.setPosition(ball, ball.startingPosition);
+                    Body.setVelocity(ball, { x: 0, y: 0 }); 
+                    Body.setAngularVelocity(ball, 0); 
+                    console.log(ball.name + "Ball Pocketed");
+                } 
+                else 
+                {
+                    // Remove the ball if it's not a colored ball or if no red balls are left
+                    World.remove(engine.world, ball); 
+                    balls.splice(i, 1); 
+                }
+                break; 
+            }
+        }
+    }
+}
+
+// Display time in console 
+function updateTimer() {
+    remainingTime--;
+    console.log("Time remaining: " + remainingTime + " seconds");
+    
+    //Trigger alert
+    if (remainingTime <= 0) {
+        endTimer();
+    }
+}
+
+// Check array when time ends
+function endTimer() {
+    clearInterval(timer);
+    console.log("Time's up!");
+
+    if (balls.length === 0) {
+        alert("You win!");
+    } else {
+        alert("Game Over");
+    }
+}
+
+//Draw timer box
+function drawTimerBox() {
+    fill(255); 
+    stroke(0); 
+    strokeWeight(2); 
+
+    // Positioning the timer box 
+    var timerBoxX = tableWidth / 2; // X Position
+    var timerBoxY = 30;  // Y Position
+    var timerBoxWidth = 120; // Width of the box
+    var timerBoxHeight = 40; // Height of the box
+
+    rect(timerBoxX - 60, timerBoxY - 100 , timerBoxWidth, timerBoxHeight);
+
+    // Display remaining time inside the box
+    var minutes = Math.floor(remainingTime / 60);
+    var seconds = remainingTime % 60;
+    var timeText = nf(minutes, 2) + ":" + nf(seconds, 2); // Format: MM:SS
+
+    fill(0); 
+    textSize(20); 
+    textAlign(CENTER, CENTER); 
+    text(timeText, timerBoxX - 60 + timerBoxWidth / 2, timerBoxY - 100 + timerBoxHeight / 2);
+}
+ -------------------- instruction.js ------------------------ 
+
+///////////////////INSTRUCTION BOX//////////////////
+document.addEventListener('DOMContentLoaded', function() {
+    // Get the modal
+    var modal = document.getElementById('myModal');
+
+    // Close modal with the space bar
+    window.addEventListener('keydown', function(event) {
+        if (event.keyCode === 32) { // 32 is the keyCode for the spacebar
+            event.preventDefault(); 
+            modal.style.display = 'none';
+        }
+    });
+    
+    window.addEventListener('keydown', function(event) {
+    if (event.key === "I" || event.key === "i") { // Check for 'I' key
+        event.preventDefault(); // Stop any default action
+        modal.style.display = 'block';
+        }
+    });
+
+    // Show the modal at the start of the game
+    modal.style.display = 'block';
+});
+ -------------------- modes.js ------------------------ 
+
+// Draw different visual mode
+function drawModes() 
+{
+    if (currentMode === 1) 
+    {
+        drawBalls();
+        removeBallInPocket();
+    } 
+    else if (currentMode === 2) 
+    {
+        // Draw for mode 2
+        drawBalls();
+        removeBallInPocket();
+    }
+    else if (currentMode === 3) 
+    {
+        // Draw for mode 3
+        drawBalls();
+        removeBallInPocket();
+    }
+    else if (currentMode === 4) 
+    {
+        drawBalls();
+        drawActivePockets();
+        removeBallInActivePocket();
+        drawTimerBox();
+    }
+}
+
+// Change the game mode based on the key pressed
+function handleModes()
+{
+    if (key === '1') 
+    {
+        currentMode = 1;
+        console.log("Switched to Regular Snooker Mode");
+        resetCueBall();
+        setupStartingPosition(); 
+
+    }
+    else if (key === '2') 
+    {
+        currentMode = 2;
+        console.log("Switched to Randomized Balls Mode");
+        resetCueBall();
+        randomizeAllBallsPosition(); 
+    } 
+    else if (key === '3') 
+    {
+        currentMode = 3;
+        console.log("Switched to Randomized Red Balls Mode");
+        resetCueBall();
+        randomizeRedBallsPosition();
+    }
+    else if (key === '4') 
+    {
+        currentMode = 4;
+        console.log("Switched to Time Limit Gameplay Mode"); 
+        resetCueBall();
+        randomizePocket();
+    }
+}
+ -------------------- pocket.js ------------------------ 
+
+///////////////////////////POCKETS FUNCTION///////////////////////////
+// Check if ball is within pocket
+function isBallInPocket(ball, pocket) 
+{
+    var distance = dist(ball.position.x, ball.position.y, pocket.position.x, pocket.position.y);
+    var threshold = (pocket.circleRadius + ball.circleRadius) / 2;
+    return distance < threshold;
+}
+
+// Remove ball in pockets
+function removeBallInPocket() 
+{
+    // Check if last pocketed ball and current pocketed ball is coloured
+    for (var i = balls.length - 1; i >= 0; i--) 
+    {
+        var ball = balls[i];
+        for (var j = 0; j < pockets.length; j++) 
+        {
+            if (isBallInPocket(ball, pockets[j])) 
+            {
+                console.log("Last ball pocketed:", lastBallPocketed);
+                if (ball.isColoredBall) {
+                    if (lastBallPocketed && lastBallPocketed.isColoredBall) 
+                    {
+                        // Trigger error prompt
+                        console.log("Error: Colored balls pocketed consecutively!");
+                        alert("Error: Colored balls pocketed consecutively!");
+                    }
+                    // Set lastBallPocketed to the current ball
+                    lastBallPocketed = ball;
+                } 
+                else 
+                {
+                    lastBallPocketed = null; // Reset if the pocketed ball is not colored
+                }
+            }
+        }
+    }
+    
+    // Check if cueball is pocketed
+    for (var j = 0; j < pockets.length; j++) 
+    {
+        if (isBallInPocket(cueBall, pockets[j])) 
+        {
+            // Generate a new cue ball and position it outside the pocket
+            Body.setPosition(cueBall, { x: mouseX, y: mouseY });
+            Body.setVelocity(cueBall, { x: 0, y: 0 }); 
+            Body.setAngularVelocity(cueBall, 0); 
+            console.log("Cue Ball Pocketed");
+            alert("Error: Cueball Pocketed! Please re-adjust cueball!");
+            
+            // Set flag
+            placingCueBall = true;
+            break;
+        }
+    } 
+    
+    // Check if redball/colourball are pocketed
+    for (var i = balls.length - 1; i >= 0; i--) 
+    { 
+        var ball = balls[i];
+        for (var j = 0; j < pockets.length; j++) 
+        {
+            if (isBallInPocket(ball, pockets[j])) 
+            {
+                if (ball.isRed) {
+                    redBallCount--;
+                    console.log("Red Ball Pocketed");
+                }
+
+                if (ball.isColoredBall && redBallCount > 0) 
+                {
+                    // Reset colored ball to its starting position
+                    Body.setPosition(ball, ball.startingPosition);
+                    Body.setVelocity(ball, { x: 0, y: 0 }); 
+                    Body.setAngularVelocity(ball, 0); 
+                    console.log(ball.name + "Ball Pocketed");
+                } 
+                else 
+                {
+                    // Remove the ball if it's not a colored ball or if no red balls are left
+                    World.remove(engine.world, ball); 
+                    balls.splice(i, 1); 
+                }
+                break; 
+            }
+        }
+    }
+}
+ -------------------- sketch.js ------------------------ 
+
+var Engine = Matter.Engine;
+var World = Matter.World;
+var Bodies = Matter.Bodies;
+var Body = Matter .Body;
+var Events = Matter.Events;
+var engine;             // The physics engine instance
+// Core game variables
+var cueBall; // Object representing the cue ball
+var walls;   // Array to store table walls (cushions)
+var balls;   // Array to store all snooker balls
+var pockets; // Array to store pocket positions
+var tableWidth, tableHeight; // Dimensions of the snooker table
+var playingSurfaceWidth, playingSurfaceHeight;  // Dimensions of the playing surface
+var cushionThickness; // Thickness of the table's cushions
+var ballDiameter;     // Diameter of the snooker balls
+var pocketDiameter;   // Diameter of the table pockets
+var redBallCount;     // Number of red balls in the game
+
+// Physics Implementation
+var friction;    // Friction coefficient 
+var restitution; // Restitution (bounciness)
+
+// Snooker table specific measurements
+var baulkLineY, baulkLineX; // Position of the baulk line
+var baulkLineLength;        // Length of the baulk line
+var dRadius;                // Radius of the 'D' on the baulk line
+var dCenterX, dCenterY;     // Center position of the 'D'
+
+var placingCueBall; // Flag to check if the cue ball is being placed
+var lastBallPocketed; // Keeps track of the last ball pocketed
+var currentMode; // Current mode/state of the game
+
+// Force application variables
+var accumulatedForce;       // Accumulated force for the cue hit
+var forceCap;               // Maximum force that can be applied
+var forceIncreaseRate;      // Rate at which force increases per frame
+var allowForceAccumulation; // Flag to allow force accumulation
+
+// UI elements for force application
+var forceBarWidth, forceBarHeight; // Dimensions of the force bar
+var forceBarMaxWidth;              // Maximum width of the force bar (for UI)
+var forceBarX, forceBarY;          // Position of the force bar
+
+var translatedX, translatedY;  // Translated X-Axis & Y-Axis
+
+// Game timer variables
+var timer;         // Timer object
+var timerDuration; // Total duration of the timer
+var remainingTime; // Remaining time in the timer
+
+function setup()
+{   
+    createCanvas(1425, 780);    // Create Canvas
+    engine = Engine.create();   // Initialise Matter.js
+    engine.world.gravity.y = 0; // Set gravity to 0
+    currentMode = 1;            // Starting Game Mode
+    
+    // Handle Collision Detection Function
+    Events.on(engine, 'collisionStart', function(event) 
+    {
+        handleCollisions(event);
+    });
+ 
+    tableWidth = 12 * 100; // Table Width
+    tableHeight = 6 * 100; // Table Height
+    playingSurfaceWidth = 11.71 * 100;   // Playing Surface Width
+    playingSurfaceHeight = 5.83 * 100;   // Playing Surface Height
+    cushionThickness = 0.2 * 100;        // Cushion Thickness
+    ballDiameter = tableWidth / 36;      // Ball Diameter
+    pocketDiameter = ballDiameter * 1.5; // Pocket Diameter
+    friction = 0.05;   // Friction Value
+    restitution = 0.9; //Restituition value
+    
+    baulkLineX = 2.42 * 100;      // X-Axis of Baukline
+    baulkLineY = tableHeight / 2; // Y-Axis of Baukline
+    baulkLineLength = playingSurfaceHeight;  // Length of Baukline
+    dRadius = (11.5 / 72) * tableHeight; // Radius for "D"
+    dCenterX = baulkLineX; // X-Axis for the center of the 'D'
+    dCenterY = baulkLineY; // Y-Axis for the center of the 'D'
+    
+    redBallCount = 15; // Total number of red balls at start
+    balls = [];  // Initialize array to store snooker balls
+    walls = [];  // Initialize array to store walls
+    pockets = [] // Initialize array to store table pockets
+    generateCueBall(ballDiameter);      // Generate the cue ball
+    setupSnookerTable(pocketDiameter);  // Set up the snooker table with pockets
+    generateRedBalls(ballDiameter);     // Generate red balls
+    generateColourBalls(ballDiameter);  // Generate colored balls
+    placingCueBall = true;    // Flag indicating that the cue ball is being placed
+    lastBallPocketed = null;  // Variable to keep track of the last ball pocketed
+    
+    accumulatedForce = 0;  // Starting force
+    forceCap = 0.1; // Maximum force that can be applied
+    forceIncreaseRate = 0.01; // Rate at which force increases per frame
+    allowForceAccumulation = false; // Prevent apply force
+    
+    forceBarWidth = 20; // Width of the force bar
+    forceBarHeight = 200; // Height of the force bar
+    forceBarMaxHeight = forceBarHeight; // Maximum height of the filled part
+    forceBarX = cushionThickness + 20; // X position of the force bar
+    forceBarY = (tableHeight - forceBarHeight) / 2; // Y position of the force bar
+    
+    timerDuration = 180; // Timer duration in seconds (3 minutes)
+    remainingTime = 180; // Time on display
+}
+
+function draw()
+{
+    background(1,50,32);   // Set the background color
+    Engine.update(engine); // Update the physics engine
+    
+    // Translate canvas
+    translate(100,100);
+    translatedX = mouseX - 100;
+    translatedY = mouseY - 100;
+    
+    drawWalls();     // Draw walls
+    drawBaulkLine(); // Draw Baukline
+    drawSemiCircle();// Draw "D"
+    drawPockets();   // Draw Pockets
+    
+    drawModes();     //Draw different modes
+    drawCueBallPlacement(); //Draw cueball
+    
+    // Check if force can be applied to cueball
+    if (mouseIsPressed && !placingCueBall && allowForceAccumulation) 
+    {
+        accumulatedForce += forceIncreaseRate;
+        accumulatedForce = min(accumulatedForce, forceCap); // Cap the force
+    }
+
+}
+
+function keyPressed()
+{
+    handleModes(); // Set different mode  
+}
+
+function mousePressed() 
+{
+    // Set the position of the cue ball to where the mouse was clicked
+    if (placingCueBall)
+    {
+        Body.setPosition(cueBall, { x: translatedX, y: translatedY});
+        placingCueBall = false;
+        allowForceAccumulation = false;
+
+        // Set a timeout to allow force accumulation after a short delay
+        setTimeout(function() 
+        {
+            allowForceAccumulation = true;
+        }, 100); 
+        
+        // Initialize and start the game timer
+        if (currentMode === 4 && !timer)
+        {
+            remainingTime = timerDuration;
+            timer = setInterval(updateTimer, 1000); 
+        }
+        return; 
+    } 
+    
+    // Check if the cue ball is not being placed and if force accumulation is allowed
+    if (!placingCueBall && allowForceAccumulation) 
+    {
+        accumulatedForce = 0;
+    }
+}
+
+function mouseReleased() 
+{
+    // Apply force only if not in cue ball placing mode 
+    if (!placingCueBall && isCueBallStopped()) 
+    {
+        var finalForceMagnitude = min(accumulatedForce, forceCap);
+
+        // Calculate the angle from the cue ball to the mouse position
+        var angle = atan2(translatedY - cueBall.position.y, translatedX - cueBall.position.x);
+
+        // Calculate the force vector
+        var forceX = finalForceMagnitude * cos(angle);
+        var forceY = finalForceMagnitude * sin(angle);
+        var appliedForce = { x: forceX, y: forceY };
+
+        // Apply the force to the cue ball
+        Body.applyForce(cueBall, { x: cueBall.position.x, y: cueBall.position.y }, appliedForce);
+
+        // Reset the accumulated force
+        accumulatedForce = 0;
+    }
+}
+
+////////////////////REPORT//////////////////
+/**The Snooker Application we developed introduces an innovative, user-friendly interface complemented by four distinct game modes. These modes include traditional gameplay, two variations with randomized ball placements, and a time-constrained challenge. This report delves into the application's functionality, highlighting the intuitive mouse-based cue system and the strategic time-limited mode featuring variable active pockets.
+
+The application greets players with an informative pop-up containing rules and instructions, accessible anytime via the "I" key.
+
+Regular Snooker (Mode 1): Aligns with the conventional rules, where the colored balls are set in their standard positions, and the red balls form a triangle configuration.
+Randomized Balls (Modes 2 and 3): Our advanced algorithm ensures a unique setup for each session, where balls are randomly distributed across the table, avoiding overlaps and pocket placements.
+Time Limit Gameplay (Mode 4): This mode introduces a race against the clock, with only three active pockets at a time and a 3-minute countdown to clear the table.
+
+To provide an intuitive control mechanism, we've implemented a mouse-based cue system. It works by tracking the mouse's position for aim direction and responding to mouse clicks to simulate force applied to the cue ball. The visual cue for force application and directionality aids users in aligning shots with precision, thus making the gameplay intuitive and reducing the learning curve. The mouse-based cue function is especially suited for new players, as it mirrors the natural point-and-click interface familiar to computer users. The force of the shot is determined by the duration the mouse button is held down, which is visually represented by a dynamic force bar, allowing players to gauge the power behind eachshot. Additionally, a directional line extends from the cue ball towards the cursor, providing immediate visual feedback for aiming.
+
+We've integrated realistic physics by adjusting friction on the balls and cushions, simulating the actual movement of a snooker game. This attention to detail significantly enhances the player's immersion.
+
+The application's extension introduces a unique time-constrained mode that adds a
+layer of urgency and strategic depth to the game. With a three-minute timer and only
+three active pockets at any given time, players are challenged to adapt their play
+style swiftly. The active pockets change position at ten-second intervals, requiring
+quick thinking and precise shot planning. This mode tests not only the players'
+snooker skills but also their ability to manage time effectively.
+
+The rationale behind the extension is to offer an innovative twist on traditional
+snooker, infusing the game with elements of unpredictability and time management. It compels the player to stay constantly engaged, making strategic decisions under pressure. This fast-paced mode caters to the modern gamer's appetite for quick and exciting rounds of play while still respecting the skillful art of snooker.
+
+Additionally, we've incorporated prompts to inform players of critical events, such as the cue ball being pocketed, requiring repositioning, or consecutive colored ball pocketing, which cues an alert for the player's attention.
+
+The Snooker Application offers a versatile and engaging experience, merging classic snooker with innovative gameplay features. **/
+
+ -------------------- tableSetup.js ------------------------ 
+
+function setupSnookerTable() 
+{
+    // Create walls/cushions
+    let leftCushion = Bodies.rectangle(cushionThickness / 2, tableHeight / 2, cushionThickness, tableHeight, {isStatic: true, restitution: restitution, friction: friction});
+    let rightCushion = Bodies.rectangle(tableWidth - cushionThickness / 2, tableHeight / 2, cushionThickness, tableHeight, {isStatic: true, restitution: restitution, friction: friction});
+    let topCushion = Bodies.rectangle(tableWidth / 2, cushionThickness / 2, tableWidth, cushionThickness, {isStatic: true, restitution: restitution, friction: friction});
+    let bottomCushion = Bodies.rectangle(tableWidth / 2, tableHeight - cushionThickness / 2, tableWidth, cushionThickness, {isStatic: true, restitution: restitution, friction: friction});
+
+    walls.push(leftCushion, rightCushion, topCushion, bottomCushion);
+
+    // Add to the world
+    World.add(engine.world, walls);
+
+    // Positions for corner pockets
+    let cornerPositions = 
+    [
+        { x: pocketDiameter / 2, y: pocketDiameter / 2 }, // Top left
+        { x: tableWidth - pocketDiameter / 2, y: pocketDiameter / 2 }, // Top right
+        { x: pocketDiameter / 2, y: tableHeight - pocketDiameter / 2 }, // Bottom left
+        { x: tableWidth - pocketDiameter / 2, y: tableHeight - pocketDiameter / 2 } // Bottom right
+    ];
+
+    // Positions for middle pockets
+    let middlePositions = 
+    [
+        { x: tableWidth / 2, y: pocketDiameter / 2 }, // Middle top
+        { x: tableWidth / 2, y: tableHeight - pocketDiameter / 2 } // Middle bottom
+    ];
+
+    cornerPositions.forEach(pos => 
+                            {
+        let pocket = Bodies.circle(pos.x, pos.y, pocketDiameter / 2, { isStatic: true, isSensor: true });
+        pockets.push(pocket);
+        World.add(engine.world, pocket);
+    });
+    
+    middlePositions.forEach(pos => 
+                            {
+        let pocket = Bodies.circle(pos.x, pos.y, pocketDiameter / 2, { isStatic: true, isSensor: true });
+        pockets.push(pocket);
+        World.add(engine.world, pocket);
+    });
+
+}
+
+function drawPockets() 
+{
+    fill(0);
+    noStroke(); 
+    for (var i = 0; i < pockets.length; i++) 
+    {
+        let pocket = pockets[i];
+        let shadowOffset = 3; 
+        let pocketRadius = pocket.circleRadius * 2;
+
+        // Draw shadow for the pocket
+        fill(0, 0, 0, 50); 
+        ellipse(pocket.position.x + shadowOffset, pocket.position.y + shadowOffset, pocketRadius, pocketRadius);
+
+        // Draw the pocket
+        fill(0); 
+        ellipse(pocket.position.x, pocket.position.y, pocketRadius, pocketRadius);
+    }
+}
+
+function drawVertices(vertices)
+{
+    beginShape();
+    for(var i=0;i<vertices.length;i++)
+        {
+            vertex(vertices[i].x,vertices[i].y)
+        }
+    endShape(CLOSE);
+}
+
+function drawWalls() 
+{
+    fill(101, 67, 33); 
+    stroke(100); 
+    strokeWeight(2); 
+
+
+    for (var i = 0; i < walls.length; i++) {
+        // Shadow settings
+        let offsetX = 5; 
+        let offsetY = 5; 
+        let shadowColor = color(0, 0, 0, 50); 
+
+        // Draw shadow first
+        fill(shadowColor);
+        noStroke(); 
+        beginShape();
+        walls[i].vertices.forEach(v => {
+            vertex(v.x + offsetX, v.y + offsetY);
+        });
+        endShape(CLOSE);
+
+        // Draw the cushion on top of the shadow
+        fill(125); 
+        stroke(100); 
+        drawVertices(walls[i].vertices);
+    }
+} 
+
+function drawBaulkLine() 
+{
+    stroke(255); 
+    line(baulkLineX, cushionThickness , baulkLineX, tableHeight - cushionThickness); 
+}
+
+// Draw the semi-circle (the "D")
+function drawSemiCircle() 
+{
+    noFill(); 
+    stroke(255); 
+    strokeWeight(2); 
+    arc(dCenterX, dCenterY, 2 * dRadius, 2 * dRadius, PI/2, 3*PI/2);
+}
